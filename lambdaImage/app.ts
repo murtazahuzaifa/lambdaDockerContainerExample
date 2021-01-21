@@ -1,15 +1,15 @@
 import { APIGatewayProxyEvent, Context, Callback } from "aws-lambda";
-const randomWords = require("random-words");
-import * as fs from 'fs';
-import axios from 'axios';
+// const randomWords = require("random-words");
+// import * as fs from 'fs';
+// import axios from 'axios';
 import { exec } from 'child_process';
 
 exports.handler = async (event: any, context: Context, callback: Callback) => {
   console.log("Event==>", event);
 
   // reading file form file-system
-  const txt = fs.readFileSync('./file.txt', 'utf-8');
-  console.log(txt);
+  // const txt = fs.readFileSync('./file.txt', 'utf-8');
+  // console.log(txt);
 
   // exec(`nohup node server.js > output.log &`, (error, stdout, stderr) => { //uname -svr
   //   if (error) { console.log(`error: ${error.message}`); return; }
@@ -28,7 +28,7 @@ exports.handler = async (event: any, context: Context, callback: Callback) => {
   // console.log("AXIOS res ===>", res);
 
   // Generating random word
-  const myWord = randomWords();
+  const myWord = "hello world" //randomWords();
 
   console.log("myWord==>", myWord);
 

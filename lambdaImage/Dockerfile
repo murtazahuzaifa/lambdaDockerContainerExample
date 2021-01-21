@@ -23,11 +23,9 @@
 
 
 
-
-ARG FUNCTION_DIR="/function"
+ARG FUNCTION_DIR="function"
 
 FROM node:12-buster as build-image
-
 
 # Include global arg in this stage of the build
 ARG FUNCTION_DIR
@@ -42,27 +40,28 @@ RUN apt-get update && \
     libcurl4-openssl-dev
 
 # Copy function code
-RUN ls
 RUN mkdir -p ${FUNCTION_DIR}
-WORKDIR ${FUNCTION_DIR}
+COPY app.js package*.json ${FUNCTION_DIR}/
 
-RUN ls
-
-# Copy package json
-COPY package.*json ${FUNCTION_DIR}
+WORKDIR /${FUNCTION_DIR}
 
 # If the dependency is not in package.json uncomment the following line
-# RUN npm install aws-lambda-ric
-
 RUN npm install && npm install aws-lambda-ric
 
-COPY app.js ${FUNCTION_DIR}
+# RUN npm install
 
+# Grab a fresh slim copy of the image to reduce the final size
 FROM node:12-buster-slim
+
+# Include global arg in this stage of the build
 ARG FUNCTION_DIR
 
+# Set working directory to function root directory
+RUN mkdir -p ${FUNCTION_DIR}
+WORKDIR /${FUNCTION_DIR}
+
 # Copy in the built dependencies
-COPY --from=build-image ${FUNCTION_DIR} ${FUNCTION_DIR}
+COPY --from=build-image /${FUNCTION_DIR} /${FUNCTION_DIR}
 
 ENTRYPOINT ["/usr/local/bin/npx", "aws-lambda-ric"]
 CMD ["app.handler"]

@@ -1,11 +1,11 @@
 import { expect as expectCDK, matchTemplate, MatchStyle } from '@aws-cdk/assert';
 import * as cdk from '@aws-cdk/core';
-import * as ContainerLambdasEcr from '../lib/container-lambdas-ecr-stack';
+import * as LambdaContainer from '../lib/lambda_container-stack';
 
 test('Empty Stack', () => {
     const app = new cdk.App();
     // WHEN
-    const stack = new ContainerLambdasEcr.ContainerLambdasEcrStack(app, 'MyTestStack');
+    const stack = new LambdaContainer.LambdaContainerStack(app, 'MyTestStack');
     // THEN
     expectCDK(stack).to(matchTemplate({
       "Resources": {}

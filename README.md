@@ -1,4 +1,4 @@
-# Lambda container with ecr image
+# Lambda container with local image
 
 ## Introduction
 
@@ -6,29 +6,38 @@ With AWS Lambda, you upload your code and run it without thinking about servers.
 
 To help you with that, you can now package and deploy Lambda functions as container images of up to 10 GB in size. In this way, you can also easily build and deploy larger workloads that rely on sizable dependencies, such as machine learning or data intensive workloads. Just like functions packaged as ZIP archives, functions deployed as container images benefit from the same operational simplicity, automatic scaling, high availability, and native integrations with many services.
 
+## Article
+
+we will follow this [Article](https://aws.amazon.com/blogs/aws/new-for-aws-lambda-container-image-support/) to create lambda container image in this step we will only Lambda container with local image
+
 ## Step 1
 
-- Create a [new cdk project](https://github.com/panacloud-modern-global-apps/full-stack-serverless-cdk/tree/main/step00_hello_cdk) make a folder **ecr-lambda** in it.
-- Create a new file (app.ts) in **ecr-lambda** folder
+- Create a [new cdk project](https://github.com/panacloud-modern-global-apps/full-stack-serverless-cdk/tree/main/step00_hello_cdk) make a folder **lambdaImage** in it.
+- Create a new file (app.ts) in **lambdaImage** folder
 
 ## Step 2
 
-Here’s the code (app.js) for a simple Node.js Lambda function generating a random name Each time it is invoked
+Here’s the code (app.ts) for a simple Node.js Lambda function generating a random word Each time it is invoked
 
 ```typescript
-const faker = require('faker');
+import { APIGatewayProxyEvent } from "aws-lambda";
+const randomWords = require("random-words");
 
-exports.lambdaHandler = async (event) => {
-  const randomName = faker.name.findName();
-  console.log(randomName);
-
-  const response = {
-    statusCode: 200,
-    body: randomName,
-  };
-  return response;
+exports.handler = async (event: APIGatewayProxyEvent) => {
+  // Generating random word
+  const myWord = randomWords();
+  return myWord;
 };
 ```
+
+I use npm to initialize the package and add the two dependencies I need in the package.json file. In this way, I also create the package-lock.json file. I am going to add it to the container image to have a more predictable result.
+
+```bash
+npm install @types/aws-lambda
+npm install random-words
+```
+
+Since we are using typescript, run the command **npm run build**(from the root directory) so your application is converted to JavaScript using the TypeScript compiler. The resulting JavaScript code is then executed.
 
 ## Step 3
 
@@ -36,52 +45,67 @@ Now, I create a Dockerfile to create the container image for my Lambda function,
 
 ```Dockerfile
 #Adding base image
-FROM amazon/aws-lambda-nodejs:12
+FROM public.ecr.aws/lambda/nodejs:12
 # Alternatively, you can pull the base image from Docker Hub: amazon/aws-lambda-nodejs:12
 
-COPY app.js package*.json ./
+COPY app.js package*.json /var/task/
 
 # Install NPM dependencies for function
 RUN npm install
 
 # Set the CMD to your handler (could also be done as a parameter override outside of the Dockerfile)
-CMD [ "app.lambdaHandler" ]
+CMD [ "app.handler" ]
 ```
 
-To use the image in ECR , I can replace the first line with
+To use the image in Docker Hub, I can replace the first line with
 
 ```Dockerfile
-FROM public.ecr.aws/lambda/nodejs:12
+FROM amazon/aws-lambda-nodejs:12
 ```
 
 The Dockerfile is adding the source code (app.js) and the files describing the package and the dependencies (package.json and package-lock.json) to the base image. Then, run npm to install the dependencies. I set the CMD to the function handler.
 
-## Step 4 pushing image to ECR
+## Step 4
 
-```typescript
-import { DockerImageAsset } from '@aws-cdk/aws-ecr-assets';
-const asset = new DockerImageAsset(this, 'EcrImage', {
-  directory: 'ecr-lambda',
-});
+I use the [Docker CLI](https://docs.docker.com/engine/reference/commandline/cli/) to build the random-letter container image locally
+
+```bash
+$ docker build -t random-word .
 ```
 
-In directory we give the name of our image folder which is 'ecr-lambda' here to push the image to the ECR , so we then pull out the image from ecr and use to make our container lambda.
+## Step 5
 
-## Step 5 pulling image from ECR
+To check if this is working, we have to start the container image locally using the Lambda [Runtime Interface Emulator (RIE)](https://docs.aws.amazon.com/lambda/latest/dg/images-test.html). RIE is already included in AWS base image so we don't need to install it.
 
-```typescript
-import * as lambda from '@aws-cdk/aws-lambda';
-//Lambda from ecr image
-const ecrLambda = new lambda.DockerImageFunction(this, 'LambdaFunctionECR', {
-  code: lambda.DockerImageCode.fromEcr(asset.repository, {
-    tag: '<Tag of the image>',
-  }),
-});
+```bash
+$ docker run -p 9000:8080 random-word:latest
 ```
 
-required repository name is given as asset.repository and in props , the tag is the tag of image in repository of ECR.
+This command runs the image as a container and starts up an endpoint locally at `localhost:9000/2015-03-31/functions/function/invocations`. this endpoint is provided by [RIE](https://docs.aws.amazon.com/lambda/latest/dg/images-test.html).
 
 ## Step 6
+
+[Install curl](https://www.cyberciti.biz/faq/how-to-install-curl-command-on-a-ubuntu-linux/) on your system. Post an event to the following endpoint using a curl command.
+
+```bash
+$ curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
+```
+
+If there are errors, We can fix them locally. When it works, We move to the next step.
+
+## Step 7
+
+Our lambda is created successfully now We have to deploy it on cloudformation using cdk. for that We have to make a construct of lambda in our stack
+
+```typescript
+// creating lambda with contianer image
+const fn = new lambda.DockerImageFunction(this, "lambdaFunction", {
+  //make sure the lambdaImage folder must container Dockerfile
+  code: lambda.DockerImageCode.fromImageAsset("lambdaImage"),
+});
+```
+
+## Step 8
 
 Authenticate the Docker CLI to your Amazon ECR registry.
 
@@ -89,29 +113,14 @@ Authenticate the Docker CLI to your Amazon ECR registry.
 aws ecr get-login-password --region "us-east-1" | docker login --username AWS --password-stdin "123456789012".dkr.ecr."us-east-1".amazonaws.com
 ```
 
-Change only highlighted fields i.e `region` and `account number` also _remove the double quotes_ from the command
+Change only highlighted fields i.e `region` and `account number` also *remove the double quotes* from the command
 
-## Step 7
+## Step 9
 
 Now build the project and deploy it by using command `cdk deploy` then what will happen is
 
-- It will first find the Dockerfile from the directory which is provided in lambda function in our case it is `ecr-lambda`.
+- It will first find the Dockerfile from the directory which is provided in lambda function in our case it is `lambdaImage`
 - Then it will build the image and deploy it on AWS ecr (by default it will make a private repo)
-- and then the uploaded image will be use by our lambda function.
+- and then the uploaded image will be use by our lambda function
 
 Also check [Amazon Elastic Container Registry pricing](https://aws.amazon.com/ecr/pricing/)
-
-# Welcome to your CDK TypeScript project!
-
-This is a blank project for TypeScript development with CDK.
-
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
-
-## Useful commands
-
-- `npm run build` compile typescript to js
-- `npm run watch` watch for changes and compile
-- `npm run test` perform the jest unit tests
-- `cdk deploy` deploy this stack to your default AWS account/region
-- `cdk diff` compare deployed stack with current state
-- `cdk synth` emits the synthesized CloudFormation template

@@ -6,48 +6,31 @@ import { exec } from 'child_process';
 
 type Event = { delay?: number, cmd?: string, hitUrl?: string, killId?: string };
 
+exec(`nohup node server.js > /tmp/output.log &`, (error, stdout, stderr) => { //uname -svr kill 20 21 22 32 43 54 | pkill -f server.js
+  if (error) { console.log(`error: ${error.message}`); return; }
+  if (stderr) { console.log(`stderr: ${stderr}`); return; }
+  console.log(`\nstdout-1==>: ${stdout}\n`);
+});
+
 export const handler = async (event: Event, context: Context, callback: Callback) => {
   // starting nodejs http server
-  exec(`nohup node server.js > /tmp/output.log &`, (error, stdout, stderr) => { //uname -svr kill 20 21 22 32 43 54
-    if (error) { console.log(`error: ${error.message}`); return; }
-    if (stderr) { console.log(`stderr: ${stderr}`); return; }
-    console.log(`\nstdout-1==>: ${stdout}\n`);
-  });
-  await delay(event.delay || 1000) // delay
+  // await delay(event.delay || 1000) // delay
   console.log("Event==>", event);
-
-  // reading file form file-system
-  // const txt = fs.readFileSync('./file.txt', 'utf-8');
-  // console.log(txt);
-
-
-  // setTimeout(async () => {
-
-
-  // }, 1000)
 
   exec(event.cmd || 'pwd', (error, stdout, stderr) => { //uname -svr
     if (error) { console.log(`error: ${error.message}`); return; }
     if (stderr) { console.log(`stderr: ${stderr}`); return; }
     console.log(`\nstdout-2==>: ${stdout}\n`);
   });
+
   // getting response from node server
   if (event.hitUrl) {
-    axios.default.get('http://localhost:5300')
-      .then((e: any) => { console.log("AXIOS RESPONSE ===>", e.data); event.killId && exec(event.killId) })
-      .catch((e: any) => { console.log("AXIOS ERROR ===>", e.response); event.killId && exec(event.killId) })
+    await http('http://localhost:5300');
   }
 
 
-  // Generating random word
-  const myWord = "hello world" //randomWords();
-
-  console.log("myWord==>", myWord);
-
-  callback(null, Responses._200({
-    myWord
-  }));
-
+  return Responses._200({ response: "hello world" });
+  // callback(null, Responses._200({ myWord }));
 
 };
 
@@ -78,5 +61,25 @@ const Responses = {
   },
 };
 
+const http = async (url: string) => {
+  while (true) {
+    try {
+      const res = await axios.default.get(url);
+      console.log("AXIOS RESPONSE ===>", res.data);
+      return res
+    } catch (err) {
+      console.log("AXIOS ERROR ===>", err.response);
+      // http(url)
+    }
+  }
+}
+
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+/*
+"delay": 1000,
+"hitUrl": "yes",
+"cmd": "ps -ef",
+"killId": "pkill -f server.js",
+*/

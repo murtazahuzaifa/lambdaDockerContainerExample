@@ -1,10 +1,13 @@
 import { APIGatewayProxyEvent, Context, Callback } from "aws-lambda";
+
 // const randomWords = require("random-words");
-import * as fs from 'fs';
-const axios = require('axios');
+// import * as fs from 'fs';
+import axios, { AxiosError, AxiosResponse } from "axios";
 import { exec } from 'child_process';
 
+enum HttpMethod { GET = "GET", POST = "POST", PUT = "PUT", DELETE = "DELETE" };
 type Event = { delay?: number, cmd?: string, hitUrl?: string, read?: string, write?: string };
+const HTTP_API = process.env.HTTP_API!
 
 // starting nodejs http server
 exec(`nohup ./bin/grafana-server --homepath="./" --config="./conf/defaults.ini" > /tmp/output.log &`, (error, stdout, stderr) => { //uname -svr kill 20 21 22 32 43 54 | pkill -f server.js
@@ -13,51 +16,75 @@ exec(`nohup ./bin/grafana-server --homepath="./" --config="./conf/defaults.ini" 
   console.log(`\nstdout-1==>: ${stdout}\n`);
 });
 
-export const handler = async (event: Event, context: Context, callback: Callback) => {
-  // await delay(event.delay || 1000) // delay
-  console.log("Event==>", event);
 
-  exec(event.cmd || 'pwd', (error, stdout, stderr) => { //uname -svr
+export const handler = async (event: any, context: Context, callback: Callback) => {
+  console.log(await waitTillGrafanaLive());
+
+  console.log("Event==>", event);
+  const METHOD = event?.requestContext?.http?.method as HttpMethod;
+  const SLASH_PATH = event?.requestContext?.http?.path as string;
+  const REFERER_PATH = event?.headers?.referer as string | undefined;
+  let REFERER_PATH_SLASH = REFERER_PATH?.substr(HTTP_API.length);
+  REFERER_PATH_SLASH = REFERER_PATH_SLASH === '/' ? undefined : REFERER_PATH_SLASH;
+
+  console.log("Method ==>", METHOD);
+  console.log("Path ==>", SLASH_PATH);
+  REFERER_PATH && console.log("Referer_Path ==>", REFERER_PATH_SLASH);
+
+  event.cmd && exec(event.cmd || 'pwd', (error, stdout, stderr) => { //uname -svr
     if (error) { console.log(`error: ${error.message}`); return; }
     if (stderr) { console.log(`stderr: ${stderr}`); return; }
     console.log(`\nstdout-2==>: ${stdout}\n`);
   });
 
+  await delay(event.delay || 1) // delay
   // getting response from node server
   if (event.hitUrl) {
-    await http('http://localhost:3000');
+    return Responses._200("application/json", "{hello:world}");
   }
 
 
-  const filePath = '/tmp/file.txt';
-  if (event.read) { console.log("Reading File==> ", fs.readFileSync(filePath, 'utf-8')); }
-  if (event.write) { fs.appendFileSync(filePath, event.write, { encoding: "utf-8" }); console.log('File Written') }
+  ///////////////////////   Returning Response //////////////////////////////////
+  try {
+    let res: AxiosResponse;
+    const url = `http://localhost:3000${REFERER_PATH_SLASH || SLASH_PATH || '/'}`;
+    if (METHOD === HttpMethod.POST) { res = await axios.post(url) }
+    else if (METHOD === HttpMethod.PUT) { res = await axios.put(url) }
+    else if (METHOD === HttpMethod.DELETE) { res = await axios.delete(url) }
+    else { res = await axios.get(url) }
 
-  await delay(event.delay || 1000) // delay
+    console.log(`AXIOS RESPONSE ${url} ===>`, res?.headers, res?.statusText);
+    return Responses._200(res?.headers["content-type"], res?.data);
 
-  return Responses._200({ response: "hello world" });
-  // callback(null, Responses._200({ myWord }));
+  } catch (err) {
+    const error = err as AxiosError;
+    console.log("ERROR", error.response, error.response?.status, error.response?.data);
+    return Responses.res(error.response?.status, error.response?.data)
 
+  }
+
+
+  ////////////////// end handler /////////////////////////////////
 };
 
 
 const Responses = {
-  _200(data: Object) {
+  _200(contentType: string = "application/json", data: Object = '{response:nothing received}') {
     return {
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': contentType,
         'Access-Control-Allow-Methods': '*',
         'Access-Control-Allow-Origin': '*',
       },
       statusCode: 200,
-      body: JSON.stringify(data),
+      body: data //JSON.stringify(data),
     };
   },
 
-  _400(data: Object) {
+  _400(contentType: string, data: Object) {
     return {
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': contentType,
         'Access-Control-Allow-Methods': '*',
         'Access-Control-Allow-Origin': '*',
       },
@@ -65,21 +92,40 @@ const Responses = {
       body: JSON.stringify(data),
     };
   },
+  res(code: number = 400, headers: object = {}, body: object = { message: "default error ture" }) {
+    return {
+      headers: {
+        'Content-Type': "application/json",
+        'Access-Control-Allow-Methods': '*',
+        'Access-Control-Allow-Origin': '*', ...headers
+      },
+      statusCode: code,
+      body: JSON.stringify(body),
+    };
+  },
 };
 
-const http = async (url: string) => {
+const http = async (url: string, method: HttpMethod = HttpMethod.GET) => {
+  let res: AxiosResponse;
+  if (method === HttpMethod.POST) { res = await axios.post(url) }
+  else if (method === HttpMethod.PUT) { res = await axios.put(url) }
+  else if (method === HttpMethod.DELETE) { res = await axios.delete(url) }
+  else { res = await axios.get(url) }
+  console.log(`AXIOS RESPONSE ${url} ===>`, res?.data);
+  return res
+}
+
+const waitTillGrafanaLive = async () => {
   while (true) {
     try {
-      const res = await axios.default.get(url);
-      console.log("AXIOS RESPONSE ===>", res.data);
-      return res
+      const msg = await axios.get("http://localhost:3000/api/users");
     } catch (err) {
-      console.log("AXIOS ERROR ===>", err.response);
-      // http(url)
+      if (!err.response) { continue }
+      console.log(err.response.data.message);
+      return err.response.data.message === 'Unauthorized'
     }
   }
 }
-
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -92,4 +138,5 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 // /mnt/lambda/function
 // ./grafana/bin/grafana-server --homepath="./grafana" --config="./grafana/conf/defaults.ini"
 // nohup node server.js > /tmp/output.log &
+// nohup ./bin/grafana-server --homepath="./" --config="./conf/defaults.ini" > /tmp/output.log &
 // nohup ./grafana/bin/grafana-server --homepath="./grafana" --config="./grafana/conf/defaults.ini" > /tmp/output.log &

@@ -11,10 +11,11 @@ export class LambdaContainerStack extends cdk.Stack {
 
     const myVpc = new ec2.Vpc(this, "Vpc", {
       maxAzs: 2,
+
     });
 
     const fileSystem = new efs.FileSystem(this, "lambdaEfsFileSystem", {
-      vpc: myVpc
+      vpc: myVpc,
     });
 
     const accessPoint = fileSystem.addAccessPoint("AccessPoint", {
@@ -35,17 +36,22 @@ export class LambdaContainerStack extends cdk.Stack {
       //make sure the lambdaImage folder must container Dockerfile
       code: lambda.DockerImageCode.fromImageAsset("lambdaImage"),
       // timeout: cdk.Duration.seconds(10),
+      memorySize: 512,
       vpc: myVpc,
-      filesystem: lambda.FileSystem.fromEfsAccessPoint(accessPoint,"/mnt/grafana"),
+      filesystem: lambda.FileSystem.fromEfsAccessPoint(accessPoint, "/mnt/grafana"),
     });
 
 
-    const httpApi = new apigatewayv2.HttpApi(this, "LambdaDockerApi");
-    httpApi.addRoutes({
-      path: '/',
-      methods: [apigatewayv2.HttpMethod.ANY],
-      integration: new LambdaProxyIntegration({ handler: fn })
-    })
+    const httpApi = new apigatewayv2.HttpApi(this, "LambdaDockerApi", {
+      defaultIntegration: new LambdaProxyIntegration({ handler: fn })
+    });
+    fn.addEnvironment("HTTP_API", httpApi.apiEndpoint)
+    // httpApi.
+    // httpApi.addRoutes({
+    //   path: '/',
+    //   methods: [apigatewayv2.HttpMethod.ANY],
+    //   integration: new LambdaProxyIntegration({ handler: fn })
+    // })
 
     new cdk.CfnOutput(this, "lambdaApi", { value: httpApi.apiEndpoint })
 

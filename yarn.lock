@@ -209,7 +209,7 @@
     "@aws-cdk/core" "1.86.0"
     constructs "^3.2.0"
 
-"@aws-cdk/aws-iam@1.86.0":
+"@aws-cdk/aws-iam@1.86.0", "@aws-cdk/aws-iam@^1.86.0":
   version "1.86.0"
   resolved "https://registry.yarnpkg.com/@aws-cdk/aws-iam/-/aws-iam-1.86.0.tgz#aaa24cd87af5f9fc21565052e7048445f0539dc1"
   integrity sha512-eGd4kx9ZvQPze5iJQa+n3PlOFb42pUz9nCpJGNr+st7eK9CP6lDllrGq3MBTx5fAxswFkY+gE7MDlDymHIGmTg==

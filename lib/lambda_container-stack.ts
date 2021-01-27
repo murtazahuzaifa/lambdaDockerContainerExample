@@ -4,6 +4,7 @@ import * as apigatewayv2 from "@aws-cdk/aws-apigatewayv2";
 import { LambdaProxyIntegration } from "@aws-cdk/aws-apigatewayv2-integrations";
 import * as ec2 from "@aws-cdk/aws-ec2";
 import * as efs from "@aws-cdk/aws-efs";
+import * as iam from "@aws-cdk/aws-iam";
 
 export class LambdaContainerStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
@@ -11,7 +12,7 @@ export class LambdaContainerStack extends cdk.Stack {
 
     const myVpc = new ec2.Vpc(this, "Vpc", {
       maxAzs: 2,
-
+      natGateways: 0
     });
 
     const fileSystem = new efs.FileSystem(this, "lambdaEfsFileSystem", {
@@ -33,13 +34,16 @@ export class LambdaContainerStack extends cdk.Stack {
 
     // creating lambda with contianer image
     const fn = new lambda.DockerImageFunction(this, "lambdaFunction", {
-      //make sure the lambdaImage folder must container Dockerfile
       code: lambda.DockerImageCode.fromImageAsset("lambdaImage"),
-      // timeout: cdk.Duration.seconds(10),
+      // timeout: Duration.seconds(10),
       memorySize: 512,
       vpc: myVpc,
       filesystem: lambda.FileSystem.fromEfsAccessPoint(accessPoint, "/mnt/grafana"),
     });
+    fn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["ecr-public:*", "ecr:SetRepositoryPolicy", "ecr:GetRepositoryPolicy"],
+      resources: ['*']
+    }))
 
 
     const httpApi = new apigatewayv2.HttpApi(this, "LambdaDockerApi", {

@@ -1,7 +1,4 @@
-import { APIGatewayProxyEvent, Context, Callback } from "aws-lambda";
-
-// const randomWords = require("random-words");
-// import * as fs from 'fs';
+import { APIGatewayProxyEventV2, Context, Callback } from "aws-lambda";
 import axios, { AxiosError, AxiosResponse } from "axios";
 import { exec } from 'child_process';
 
@@ -17,10 +14,10 @@ exec(`nohup ./bin/grafana-server --homepath="./" --config="./conf/defaults.ini" 
 });
 
 
-export const handler = async (event: any, context: Context, callback: Callback) => {
-  console.log(await waitTillGrafanaLive());
-
+export const handler = async (event: APIGatewayProxyEventV2, context: Context, callback: Callback) => {
   console.log("Event==>", event);
+  await waitTillGrafanaLive();
+
   const METHOD = event?.requestContext?.http?.method as HttpMethod;
   const SLASH_PATH = event?.requestContext?.http?.path as string;
   const REFERER_PATH = event?.headers?.referer as string | undefined;
@@ -31,35 +28,45 @@ export const handler = async (event: any, context: Context, callback: Callback) 
   console.log("Path ==>", SLASH_PATH);
   REFERER_PATH && console.log("Referer_Path ==>", REFERER_PATH_SLASH);
 
-  event.cmd && exec(event.cmd || 'pwd', (error, stdout, stderr) => { //uname -svr
-    if (error) { console.log(`error: ${error.message}`); return; }
-    if (stderr) { console.log(`stderr: ${stderr}`); return; }
-    console.log(`\nstdout-2==>: ${stdout}\n`);
-  });
+  // event.cmd && exec(event.cmd || 'pwd', (error, stdout, stderr) => { //uname -svr
+  //   if (error) { console.log(`error: ${error.message}`); return; }
+  //   if (stderr) { console.log(`stderr: ${stderr}`); return; }
+  //   console.log(`\nstdout-2==>: ${stdout}\n`);
+  // });
 
-  await delay(event.delay || 1) // delay
-  // getting response from node server
-  if (event.hitUrl) {
-    return Responses._200("application/json", "{hello:world}");
-  }
+  // await delay(event.delay || 1) // delay
+  // // getting response from node server
+  // if (event.hitUrl) {
+  //   return Responses._200("application/json", "{hello:world}");
+  // }
 
 
   ///////////////////////   Returning Response //////////////////////////////////
   try {
+    //////////////////  Request ////////////////////////////
     let res: AxiosResponse;
     const url = `http://localhost:3000${REFERER_PATH_SLASH || SLASH_PATH || '/'}`;
-    if (METHOD === HttpMethod.POST) { res = await axios.post(url) }
+
+    if (METHOD === HttpMethod.POST) { res = await axios.post(url, event.body, event.headers) }
     else if (METHOD === HttpMethod.PUT) { res = await axios.put(url) }
     else if (METHOD === HttpMethod.DELETE) { res = await axios.delete(url) }
-    else { res = await axios.get(url) }
+    else { res = await axios.get(url, { headers: event.headers }) }
 
     console.log(`AXIOS RESPONSE ${url} ===>`, res?.headers, res?.statusText);
+
+    /////////////////// json response //////////////////////////////
+    if (res.headers["content-type"] === "application/json") {
+      return Responses.res(res.status, {}, res?.data);
+    }
+
+    /////////////////// default response //////////////////////////////
     return Responses._200(res?.headers["content-type"], res?.data);
 
+    ////////////////// error response //////////////////////////////
   } catch (err) {
     const error = err as AxiosError;
     console.log("ERROR", error.response, error.response?.status, error.response?.data);
-    return Responses.res(error.response?.status, error.response?.data)
+    return Responses.res(error.response?.status, {}, error.response?.data)
 
   }
 

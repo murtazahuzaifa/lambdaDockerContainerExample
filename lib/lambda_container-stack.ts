@@ -12,14 +12,14 @@ export class LambdaContainerStack extends cdk.Stack {
 
     const myVpc = new ec2.Vpc(this, "Vpc", {
       maxAzs: 2,
-      natGateways: 0
+      // natGateways: 0
     });
 
     const fileSystem = new efs.FileSystem(this, "lambdaEfsFileSystem", {
       vpc: myVpc,
     });
 
-    const accessPoint = fileSystem.addAccessPoint("AccessPoint", {
+    const accessPoint = fileSystem.addAccessPoint("AccessPoint", {    
       createAcl: {
         ownerGid: "1001",
         ownerUid: "1001",

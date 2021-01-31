@@ -3,7 +3,7 @@ import axios, { AxiosError, AxiosResponse } from "axios";
 import { exec } from 'child_process';
 
 enum HttpMethod { GET = "GET", POST = "POST", PUT = "PUT", DELETE = "DELETE" };
-type Event = { delay?: number, cmd?: string, hitUrl?: string, read?: string, write?: string };
+interface Event extends APIGatewayProxyEventV2 { delay?: number, cmd?: string, hitUrl?: string, read?: string, write?: string };
 const HTTP_API = process.env.HTTP_API!
 
 // starting nodejs http server
@@ -14,7 +14,7 @@ exec(`nohup ./bin/grafana-server --homepath="./" --config="./conf/defaults.ini" 
 });
 
 
-export const handler = async (event: APIGatewayProxyEventV2, context: Context, callback: Callback) => {
+export const handler = async (event: Event, context: Context, callback: Callback) => {
   console.log("Event==>", event);
   await waitTillGrafanaLive();
 
@@ -28,14 +28,14 @@ export const handler = async (event: APIGatewayProxyEventV2, context: Context, c
   console.log("Path ==>", SLASH_PATH);
   REFERER_PATH && console.log("Referer_Path ==>", REFERER_PATH_SLASH);
 
-  // event.cmd && exec(event.cmd || 'pwd', (error, stdout, stderr) => { //uname -svr
-  //   if (error) { console.log(`error: ${error.message}`); return; }
-  //   if (stderr) { console.log(`stderr: ${stderr}`); return; }
-  //   console.log(`\nstdout-2==>: ${stdout}\n`);
-  // });
+  event.cmd && exec(event.cmd || 'pwd', (error, stdout, stderr) => { //uname -svr
+    if (error) { console.log(`error: ${error.message}`); return; }
+    if (stderr) { console.log(`stderr: ${stderr}`); return; }
+    console.log(`\nstdout-2==>: ${stdout}\n`);
+  });
 
-  // await delay(event.delay || 1) // delay
-  // // getting response from node server
+  if(event.delay){await delay(event.delay || 1); return {} } // delay
+  // getting response from node server
   // if (event.hitUrl) {
   //   return Responses._200("application/json", "{hello:world}");
   // }
@@ -44,6 +44,7 @@ export const handler = async (event: APIGatewayProxyEventV2, context: Context, c
   ///////////////////////   Returning Response //////////////////////////////////
   try {
     //////////////////  Request ////////////////////////////
+    event.headers["Authorization"] = `Basic YWRtaW46YWRtaW4=`
     let res: AxiosResponse;
     const url = `http://localhost:3000${SLASH_PATH || '/'}`;
     console.log("body====>", url, JSON.parse(event.body || "{}"));
@@ -53,7 +54,7 @@ export const handler = async (event: APIGatewayProxyEventV2, context: Context, c
     else { res = await axios.get(url, { headers: event.headers }) }
 
     console.log(`AXIOS RESPONSE ${url} ===>`, res?.headers, res?.statusText, res.request.res.responseUrl);
-    const _headers = res?.headers as { 'set-cookie': string }
+    const _headers = res?.headers as { 'set-cookie': string, Authorization:string }
 
     // /////////////////////////// redirect ////////////////////////////
     // const cookie = parseCookie(event.headers.Cookie)
@@ -75,6 +76,20 @@ export const handler = async (event: APIGatewayProxyEventV2, context: Context, c
     //     "Set-Cookie": _headers['set-cookie'] ? _headers['set-cookie'][0] : "grafana_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
     //   }, loginHtml());
     // }
+    // _headers["Authorization"] = `Basic YWRtaW46YWRtaW4=`
+    /////////////////// I-Frame response //////////////////////////////
+    // if(SLASH_PATH.substr(0,7) === "/d-solo"){
+    //   _headers["Authorization"] = `Basic YWRtaW46YWRtaW4=`
+    //   console.log(_headers);
+    //   const response = Responses._200( {
+    //     ..._headers,
+    //     Authorization: `Basic YWRtaW46YWRtaW4=`,
+    //     // "Set-Cookie": _headers['set-cookie'] ? _headers['set-cookie'][0] : "grafana_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
+    //   }, res?.data, res.status);
+    //   console.log(response);
+    //   return response
+    // }
+
 
     /////////////////// json response //////////////////////////////
     if (_headers['set-cookie'] && _headers['set-cookie'][0]) {
@@ -109,8 +124,7 @@ export const handler = async (event: APIGatewayProxyEventV2, context: Context, c
   }
 
 
-  ////////////////// end handler /////////////////////////////////
-};
+}; ////////////////// end handler /////////////////////////////////
 
 
 const Responses = {

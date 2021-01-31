@@ -46,14 +46,14 @@ export const handler = async (event: APIGatewayProxyEventV2, context: Context, c
     //////////////////  Request ////////////////////////////
     let res: AxiosResponse;
     const url = `http://localhost:3000${SLASH_PATH || '/'}`;
-
-    if (METHOD === HttpMethod.POST) { res = await axios.post(url, JSON.parse(event.body || "{}"), {headers:event.headers}); console.log(JSON.parse(event.body || "{}")) }
-    else if (METHOD === HttpMethod.PUT) { res = await axios.put(url) }
-    else if (METHOD === HttpMethod.DELETE) { res = await axios.delete(url) }
+    console.log("body====>", url, JSON.parse(event.body || "{}"));
+    if (METHOD === HttpMethod.POST) { console.log('POST====>req'); res = await axios.post(url, JSON.parse(event.body || "{}"), { headers: event.headers }) }
+    else if (METHOD === HttpMethod.PUT) { console.log('PUT====>req'); res = await axios.put(url, JSON.parse(event.body || "{}"), { headers: event.headers }) }
+    else if (METHOD === HttpMethod.DELETE) { res = await axios.delete(url, { headers: event.headers }) }
     else { res = await axios.get(url, { headers: event.headers }) }
 
     console.log(`AXIOS RESPONSE ${url} ===>`, res?.headers, res?.statusText, res.request.res.responseUrl);
-    const _headers = event.headers as { 'set-cookie': string }
+    const _headers = res?.headers as { 'set-cookie': string }
 
     // /////////////////////////// redirect ////////////////////////////
     // const cookie = parseCookie(event.headers.Cookie)
@@ -66,23 +66,29 @@ export const handler = async (event: APIGatewayProxyEventV2, context: Context, c
     //   }, {});
     // }
 
-    // ///////////////////  /login response //////////////////////////////
-    // if (res.headers["content-type"] === "text/html; charset=UTF-8" && SLASH_PATH === "/login") {
+    /////////////////  /login response //////////////////////////////
+    // if (METHOD === HttpMethod.POST && SLASH_PATH === "/login") {
     //   // console.log(`res.headers["content-type"] === "application/json"`)
     //   return Responses._200({
     //     // "Content-Type": res?.headers["content-type"],
-    //     ...res.headers
-    //     // "Set-Cookie": _headers['set-cookie'] ? _headers['set-cookie'][0] : "grafana_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
+    //     ...res.headers,
+    //     "Set-Cookie": _headers['set-cookie'] ? _headers['set-cookie'][0] : "grafana_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
     //   }, loginHtml());
     // }
 
     /////////////////// json response //////////////////////////////
+    if (_headers['set-cookie'] && _headers['set-cookie'][0]) {
+      console.log("set-cookie ==>>", _headers['set-cookie'][0])
+      _headers['set-cookie'] = _headers['set-cookie'][0]
+    }
     if (res.headers["content-type"] === "application/json") {
       console.log(`res.headers["content-type"] === "application/json"`)
-      return Responses.res(res.status, {
+      const response = Responses.res(res.status, {
+        ..._headers,
         // "Set-Cookie": _headers['set-cookie'] ? _headers['set-cookie'][0] : "grafana_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
-        ..._headers
       }, res?.data);
+      console.log(response);
+      return response
     }
 
 
@@ -90,7 +96,7 @@ export const handler = async (event: APIGatewayProxyEventV2, context: Context, c
     return Responses._200({
       "Content-Type": res?.headers["content-type"],
       // "Set-Cookie": _headers['set-cookie'] ? _headers['set-cookie'][0] : "grafana_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
-      ..._headers
+      ..._headers,
     }, res?.data);
 
 

@@ -17,6 +17,8 @@ export class LambdaContainerStack extends cdk.Stack {
 
     const fileSystem = new efs.FileSystem(this, "lambdaEfsFileSystem", {
       vpc: myVpc,
+      fileSystemName: "LambdaContainerStack/lambdaEfsFileSystem",
+      // vpcSubnets
     });
 
     const accessPoint = fileSystem.addAccessPoint("AccessPoint", {    

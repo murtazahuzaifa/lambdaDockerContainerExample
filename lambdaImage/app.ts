@@ -34,7 +34,7 @@ export const handler = async (event: Event, context: Context, callback: Callback
     console.log(`\nstdout-2==>: ${stdout}\n`);
   });
 
-  if(event.delay){await delay(event.delay || 1); return {} } // delay
+  if (event.delay) { await delay(event.delay || 1); return {} } // delay
   // getting response from node server
   // if (event.hitUrl) {
   //   return Responses._200("application/json", "{hello:world}");
@@ -53,8 +53,11 @@ export const handler = async (event: Event, context: Context, callback: Callback
     else if (METHOD === HttpMethod.DELETE) { res = await axios.delete(url, { headers: event.headers }) }
     else { res = await axios.get(url, { headers: event.headers }) }
 
-    console.log(`AXIOS RESPONSE ${url} ===>`, res?.headers, res?.statusText, res.request.res.responseUrl);
-    const _headers = res?.headers as { 'set-cookie': string, Authorization:string }
+    console.log(`event.header ===>`, res?.headers, res?.statusText, res.request.res.responseUrl);
+    console.log(`\nAXIOS RESPONSE ${url} ===>`, res);
+    const resp_data = res?.data || [];
+    // console.log(`AXIOS RESPONSE ${url} ===>`, res?.headers, res?.statusText, res.request.res.responseUrl);
+    const _headers = res?.headers as { 'set-cookie': string, Authorization: string }
 
     // /////////////////////////// redirect ////////////////////////////
     // const cookie = parseCookie(event.headers.Cookie)
@@ -85,7 +88,7 @@ export const handler = async (event: Event, context: Context, callback: Callback
     //     ..._headers,
     //     Authorization: `Basic YWRtaW46YWRtaW4=`,
     //     // "Set-Cookie": _headers['set-cookie'] ? _headers['set-cookie'][0] : "grafana_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
-    //   }, res?.data, res.status);
+    //   }, resp_data, res.status);
     //   console.log(response);
     //   return response
     // }
@@ -101,7 +104,7 @@ export const handler = async (event: Event, context: Context, callback: Callback
       const response = Responses.res(res.status, {
         ..._headers,
         // "Set-Cookie": _headers['set-cookie'] ? _headers['set-cookie'][0] : "grafana_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
-      }, res?.data);
+      }, resp_data);
       console.log(response);
       return response
     }
@@ -112,7 +115,7 @@ export const handler = async (event: Event, context: Context, callback: Callback
       "Content-Type": res?.headers["content-type"],
       // "Set-Cookie": _headers['set-cookie'] ? _headers['set-cookie'][0] : "grafana_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
       ..._headers,
-    }, res?.data);
+    }, resp_data);
 
 
     ////////////////// error response //////////////////////////////

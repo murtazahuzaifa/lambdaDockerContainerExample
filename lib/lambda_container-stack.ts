@@ -10,38 +10,40 @@ export class LambdaContainerStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const myVpc = new ec2.Vpc(this, "Vpc", {
-      maxAzs: 2,
-      // natGateways: 0
-    });
+    // const myVpc = new ec2.Vpc(this, "Vpc", {
+    //   maxAzs: 2,
+    //   // natGateways: 0
+    // });
 
-    const fileSystem = new efs.FileSystem(this, "lambdaEfsFileSystem", {
-      vpc: myVpc,
-      fileSystemName: "LambdaContainerStack/lambdaEfsFileSystem",
-      // vpcSubnets
-    });
+    // const fileSystem = new efs.FileSystem(this, "lambdaEfsFileSystem", {
+    //   vpc: myVpc,
+    //   fileSystemName: "LambdaContainerStack/lambdaEfsFileSystem",
+    //   // vpcSubnets
+    // });
 
-    const accessPoint = fileSystem.addAccessPoint("AccessPoint", {    
-      createAcl: {
-        ownerGid: "1001",
-        ownerUid: "1001",
-        permissions: "777",
-      },
-      path: "/grafana",
-      posixUser: {
-        gid: "1001",
-        uid: "1001",
-      },
-    });
+    // const accessPoint = fileSystem.addAccessPoint("AccessPoint", {    
+    //   createAcl: {
+    //     ownerGid: "1001",
+    //     ownerUid: "1001",
+    //     permissions: "777",
+    //   },
+    //   path: "/grafana",
+    //   posixUser: {
+    //     gid: "1001",
+    //     uid: "1001",
+    //   },
+    // });
 
     // creating lambda with contianer image
     const fn = new lambda.DockerImageFunction(this, "lambdaFunction", {
       code: lambda.DockerImageCode.fromImageAsset("lambdaImage"),
       // timeout: Duration.seconds(10),
       memorySize: 512,
-      vpc: myVpc,
-      filesystem: lambda.FileSystem.fromEfsAccessPoint(accessPoint, "/mnt/grafana"),
+      // vpc: myVpc,
+      // filesystem: lambda.FileSystem.fromEfsAccessPoint(accessPoint, "/mnt/grafana"),
+      environment: { USERS_TABLE: "GrafanaApiStack-GrafanaRecord3E82FFFC-1ECPFEYZJ74OO" }
     });
+    
     fn.addToRolePolicy(new iam.PolicyStatement({
       actions: ["ecr-public:*", "ecr:SetRepositoryPolicy", "ecr:GetRepositoryPolicy"],
       resources: ['*']

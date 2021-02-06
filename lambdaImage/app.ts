@@ -1,10 +1,13 @@
 import { APIGatewayProxyEventV2, Context, Callback } from "aws-lambda";
 import axios, { AxiosError, AxiosResponse } from "axios";
 import { exec } from 'child_process';
+import { DynamoDB } from 'aws-sdk';
 
 enum HttpMethod { GET = "GET", POST = "POST", PUT = "PUT", DELETE = "DELETE" };
 interface Event extends APIGatewayProxyEventV2 { delay?: number, cmd?: string, hitUrl?: string, read?: string, write?: string };
 const HTTP_API = process.env.HTTP_API!
+const USERS_TABLE = process.env.USERS_TABLE;
+const dynamoClient = new DynamoDB.DocumentClient();
 
 // starting nodejs http server
 exec(`nohup ./bin/grafana-server --homepath="./" --config="./conf/defaults.ini" > /tmp/output.log &`, (error, stdout, stderr) => { //uname -svr kill 20 21 22 32 43 54 | pkill -f server.js
@@ -16,11 +19,11 @@ exec(`nohup ./bin/grafana-server --homepath="./" --config="./conf/defaults.ini" 
 
 export const handler = async (event: Event, context: Context, callback: Callback) => {
   console.log("Event==>", event);
-  await waitTillGrafanaLive();
 
   const METHOD = event?.requestContext?.http?.method as HttpMethod;
   const SLASH_PATH = event?.requestContext?.http?.path as string;
   const REFERER_PATH = event?.headers?.referer as string | undefined;
+  const QueryParm = event?.queryStringParameters as { mode?: string };
   let REFERER_PATH_SLASH = REFERER_PATH?.substr(HTTP_API.length);
   REFERER_PATH_SLASH = REFERER_PATH_SLASH === '/' ? undefined : REFERER_PATH_SLASH;
 
@@ -34,6 +37,8 @@ export const handler = async (event: Event, context: Context, callback: Callback
     console.log(`\nstdout-2==>: ${stdout}\n`);
   });
 
+  await waitTillGrafanaLive();
+
   if (event.delay) { await delay(event.delay || 1); return {} } // delay
   // getting response from node server
   // if (event.hitUrl) {
@@ -44,10 +49,24 @@ export const handler = async (event: Event, context: Context, callback: Callback
   ///////////////////////   Returning Response //////////////////////////////////
   try {
     //////////////////  Request ////////////////////////////
-    event.headers["Authorization"] = `Basic YWRtaW46YWRtaW4=`
+    /* if there is a request from Iframes */
+    if (SLASH_PATH.substr(0, 7) === "/d-solo") {
+      const userId = QueryParm?.mode // getting userId
+      if (!userId) { return Responses.res(401, {}, { "message": "Unauthorized" }) }
+      const password = await getUserPassword(userId) // getting password by userId
+      console.log("IFRAME request ===>", userId, '|', password, "|")
+      if (!password) { return Responses.res(401, {}, { "message": "Unauthorized" }) }
+      const authToken = base64Parser(`${userId}:${password}`, "Encode");
+      event.headers["Authorization"] = `Basic ${authToken}`
+    }
+    /* other requests */ 
+    else {
+      event.headers["Authorization"] = `Basic YWRtaW46YWRtaW4=`
+    }
+
     let res: AxiosResponse;
     const url = `http://localhost:3000${SLASH_PATH || '/'}`;
-    console.log("body====>", url, JSON.parse(event.body || "{}"));
+    // console.log("body====>", url, JSON.parse(event.body || "{}"));
     if (METHOD === HttpMethod.POST) { console.log('POST====>req'); res = await axios.post(url, JSON.parse(event.body || "{}"), { headers: event.headers }) }
     else if (METHOD === HttpMethod.PUT) { console.log('PUT====>req'); res = await axios.put(url, JSON.parse(event.body || "{}"), { headers: event.headers }) }
     else if (METHOD === HttpMethod.DELETE) { res = await axios.delete(url, { headers: event.headers }) }
@@ -55,9 +74,9 @@ export const handler = async (event: Event, context: Context, callback: Callback
 
     console.log(`event.header ===>`, res?.headers, res?.statusText, res.request.res.responseUrl);
     console.log(`\nAXIOS RESPONSE ${url} ===>`, res);
-    const resp_data = res?.data || [];
+    const resp_data = res?.data || "{}";
     // console.log(`AXIOS RESPONSE ${url} ===>`, res?.headers, res?.statusText, res.request.res.responseUrl);
-    const _headers = res?.headers as { 'set-cookie': string, Authorization: string }
+    const _headers = res?.headers as { 'set-cookie': string, Authorization: string };
 
     // /////////////////////////// redirect ////////////////////////////
     // const cookie = parseCookie(event.headers.Cookie)
@@ -80,11 +99,12 @@ export const handler = async (event: Event, context: Context, callback: Callback
     //   }, loginHtml());
     // }
     // _headers["Authorization"] = `Basic YWRtaW46YWRtaW4=`
+
     /////////////////// I-Frame response //////////////////////////////
-    // if(SLASH_PATH.substr(0,7) === "/d-solo"){
+    // if (SLASH_PATH.substr(0, 7) === "/d-solo") {
     //   _headers["Authorization"] = `Basic YWRtaW46YWRtaW4=`
     //   console.log(_headers);
-    //   const response = Responses._200( {
+    //   const response = Responses._200({
     //     ..._headers,
     //     Authorization: `Basic YWRtaW46YWRtaW4=`,
     //     // "Set-Cookie": _headers['set-cookie'] ? _headers['set-cookie'][0] : "grafana_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
@@ -95,10 +115,11 @@ export const handler = async (event: Event, context: Context, callback: Callback
 
 
     /////////////////// json response //////////////////////////////
-    if (_headers['set-cookie'] && _headers['set-cookie'][0]) {
-      console.log("set-cookie ==>>", _headers['set-cookie'][0])
-      _headers['set-cookie'] = _headers['set-cookie'][0]
-    }
+    // if (_headers['set-cookie'] && _headers['set-cookie'][0]) {
+    //   console.log("set-cookie ==>>", _headers['set-cookie'][0])
+    //   _headers['set-cookie'] = _headers['set-cookie'][0]
+    // }
+
     if (res.headers["content-type"] === "application/json") {
       console.log(`res.headers["content-type"] === "application/json"`)
       const response = Responses.res(res.status, {
@@ -134,7 +155,8 @@ const Responses = {
   _200(headers: object, data: Object = '{response:nothing received}', code: number = 200) {
     return {
       headers: {
-        'Access-Control-Allow-Methods': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        "Access-Control-Allow-Credentials": true,
         'Access-Control-Allow-Origin': '*',
         ...headers
       },
@@ -147,7 +169,8 @@ const Responses = {
     return {
       headers: {
         'Content-Type': contentType,
-        'Access-Control-Allow-Methods': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        "Access-Control-Allow-Credentials": true,
         'Access-Control-Allow-Origin': '*',
       },
       statusCode: 400,
@@ -158,7 +181,8 @@ const Responses = {
     return {
       headers: {
         'Content-Type': "application/json",
-        'Access-Control-Allow-Methods': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        "Access-Control-Allow-Credentials": true,
         'Access-Control-Allow-Origin': '*', ...headers
       },
       statusCode: code,
@@ -166,6 +190,20 @@ const Responses = {
     };
   },
 };
+
+const base64Parser = (str: string, method: "Encode" | "Decode") => {
+  if (method === "Encode") { return Buffer.from(str, 'utf-8').toString("base64") }
+  else { return Buffer.from(str, "base64").toString("utf-8") }
+}
+
+const getUserPassword = async (userId: string) => {
+  const res = await dynamoClient.get({
+    TableName: USERS_TABLE!,
+    Key: { PK: userId },
+    AttributesToGet: ["password"],
+  }).promise();
+  return res.Item?.password
+}
 
 const http = async (url: string, method: HttpMethod = HttpMethod.GET) => {
   let res: AxiosResponse;
@@ -180,11 +218,10 @@ const http = async (url: string, method: HttpMethod = HttpMethod.GET) => {
 const waitTillGrafanaLive = async () => {
   while (true) {
     try {
-      const msg = await axios.get("http://localhost:3000/api/users");
+      const msg = await axios.get("http://localhost:3000");
+      return
     } catch (err) {
-      if (!err.response) { continue }
-      console.log(err.response.data.message);
-      return err.response.data.message === 'Unauthorized'
+      continue
     }
   }
 }

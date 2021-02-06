@@ -43,10 +43,11 @@ export class LambdaContainerStack extends cdk.Stack {
       // filesystem: lambda.FileSystem.fromEfsAccessPoint(accessPoint, "/mnt/grafana"),
       environment: { USERS_TABLE: "GrafanaApiStack-GrafanaRecord3E82FFFC-1ECPFEYZJ74OO" }
     });
-    
+
     fn.addToRolePolicy(new iam.PolicyStatement({
-      actions: ["ecr-public:*", "ecr:SetRepositoryPolicy", "ecr:GetRepositoryPolicy"],
-      resources: ['*']
+      actions: ["ecr-public:*", "ecr:SetRepositoryPolicy", "ecr:GetRepositoryPolicy", "dynamodb:*"],
+      resources: ['*'],
+      effect: iam.Effect.ALLOW,
     }))
 
 

@@ -21,14 +21,17 @@ export const handler = async (event: Event, context: Context, callback: Callback
   console.log("Event==>", event);
 
   const METHOD = event?.requestContext?.http?.method as HttpMethod;
-  const SLASH_PATH = event?.requestContext?.http?.path as string;
+  let SLASH_PATH = event?.requestContext?.http?.path as string;
   const REFERER_PATH = event?.headers?.referer as string | undefined;
   const QueryParm = event?.queryStringParameters as { mode?: string };
+  const SLASH_PATH_WITH_QUERY = event.rawQueryString === "" ? SLASH_PATH : `${SLASH_PATH}?${event.rawQueryString}`
   let REFERER_PATH_SLASH = REFERER_PATH?.substr(HTTP_API.length);
   REFERER_PATH_SLASH = REFERER_PATH_SLASH === '/' ? undefined : REFERER_PATH_SLASH;
 
   console.log("Method ==>", METHOD);
   console.log("Path ==>", SLASH_PATH);
+  console.log("Complete Path with query string ==>", SLASH_PATH_WITH_QUERY)
+  QueryParm && console.log("QueryParm ==>", QueryParm)
   REFERER_PATH && console.log("Referer_Path ==>", REFERER_PATH_SLASH);
 
   event.cmd && exec(event.cmd || 'pwd', (error, stdout, stderr) => { //uname -svr
@@ -51,6 +54,7 @@ export const handler = async (event: Event, context: Context, callback: Callback
     //////////////////  Request ////////////////////////////
     /* if there is a request from Iframes */
     if (SLASH_PATH.substr(0, 7) === "/d-solo") {
+      console.log("---Iframe Request---", SLASH_PATH_WITH_QUERY)
       const userId = QueryParm?.mode // getting userId
       if (!userId) { return Responses.res(401, {}, { "message": "Unauthorized" }) }
       const password = await getUserPassword(userId) // getting password by userId
@@ -59,13 +63,14 @@ export const handler = async (event: Event, context: Context, callback: Callback
       const authToken = base64Parser(`${userId}:${password}`, "Encode");
       event.headers["Authorization"] = `Basic ${authToken}`
     }
-    /* other requests */ 
+    /* other requests */
     else {
       event.headers["Authorization"] = `Basic YWRtaW46YWRtaW4=`
     }
 
     let res: AxiosResponse;
-    const url = `http://localhost:3000${SLASH_PATH || '/'}`;
+    const url = `http://localhost:3000${SLASH_PATH_WITH_QUERY || '/'}`;
+    console.log("local-URL===>", url)
     // console.log("body====>", url, JSON.parse(event.body || "{}"));
     if (METHOD === HttpMethod.POST) { console.log('POST====>req'); res = await axios.post(url, JSON.parse(event.body || "{}"), { headers: event.headers }) }
     else if (METHOD === HttpMethod.PUT) { console.log('PUT====>req'); res = await axios.put(url, JSON.parse(event.body || "{}"), { headers: event.headers }) }
@@ -142,7 +147,7 @@ export const handler = async (event: Event, context: Context, callback: Callback
     ////////////////// error response //////////////////////////////
   } catch (err) {
     const error = err as AxiosError;
-    console.log("ERROR", error.response, error.response?.status, error.response?.data);
+    console.log("ERROR", error.response, error.response?.status, error.response?.data, error);
     return Responses.res(error.response?.status, {}, error.response?.data)
 
   }

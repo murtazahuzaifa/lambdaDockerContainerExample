@@ -1,27 +1,3 @@
-# From alpine as serverEnv
-
-# RUN apk add --update nodejs nodejs-npm
-# COPY server.js /src
-
-
-#Adding base image
-# FROM public.ecr.aws/lambda/nodejs:12
-
-# # Alternatively, you can pull the base image from Docker Hub: amazon/aws-lambda-nodejs:12
-# COPY app.js package*.json server.js file.txt /
-
-# # WORKDIR /var/task/
-
-# # Install NPM dependencies for function
-# RUN npm install
-# # RUN nohup node server.js > output.log & npm install
-# # npm install forever
-
-# # Set the CMD to your handler (could also be done as a parameter override outside of the Dockerfile)
-# CMD [ "app.handler" ]
-
-
-
 
 # ARG FUNCTION_DIR="mnt/content"
 ARG FUNCTION_DIR="function"
@@ -42,7 +18,7 @@ RUN apt-get update && \
 
 # Copy function code
 RUN mkdir -p ${FUNCTION_DIR}
-COPY app.js package*.json server.js grafana ${FUNCTION_DIR}/
+COPY app.js package*.json grafana.ini grafana ${FUNCTION_DIR}/
 
 WORKDIR /${FUNCTION_DIR}
 

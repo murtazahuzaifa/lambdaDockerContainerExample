@@ -10,7 +10,7 @@ const USERS_TABLE = process.env.USERS_TABLE;
 const dynamoClient = new DynamoDB.DocumentClient();
 
 // starting nodejs http server
-exec(`nohup ./bin/grafana-server --homepath="./" --config="./conf/defaults.ini" > /tmp/output.log &`, (error, stdout, stderr) => { //uname -svr kill 20 21 22 32 43 54 | pkill -f server.js
+exec(`nohup ./bin/grafana-server --homepath="./" --config="grafana.ini" > /tmp/output.log &`, (error, stdout, stderr) => { //uname -svr kill 20 21 22 32 43 54 | pkill -f server.js
   if (error) { console.log(`error: ${error.message}`); return; }
   if (stderr) { console.log(`stderr: ${stderr}`); return; }
   console.log(`\nstdout-1==>: ${stdout}\n`);
@@ -82,42 +82,6 @@ export const handler = async (event: Event, context: Context, callback: Callback
     const resp_data = res?.data || "{}";
     // console.log(`AXIOS RESPONSE ${url} ===>`, res?.headers, res?.statusText, res.request.res.responseUrl);
     const _headers = res?.headers as { 'set-cookie': string, Authorization: string };
-
-    // /////////////////////////// redirect ////////////////////////////
-    // const cookie = parseCookie(event.headers.Cookie)
-    // console.log("cookie===>", cookie);
-    // // if (res.request.res.responseUrl === "http://localhost:3000/login") {
-    // if (!cookie?.grafana_session && res.request.path === '/') {
-    //   console.log(`!event.headers.Cookie`)
-    //   return Responses.res(302, {
-    //     Location: "/login", //"Set-Cookie": "grafana_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"
-    //   }, {});
-    // }
-
-    /////////////////  /login response //////////////////////////////
-    // if (METHOD === HttpMethod.POST && SLASH_PATH === "/login") {
-    //   // console.log(`res.headers["content-type"] === "application/json"`)
-    //   return Responses._200({
-    //     // "Content-Type": res?.headers["content-type"],
-    //     ...res.headers,
-    //     "Set-Cookie": _headers['set-cookie'] ? _headers['set-cookie'][0] : "grafana_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
-    //   }, loginHtml());
-    // }
-    // _headers["Authorization"] = `Basic YWRtaW46YWRtaW4=`
-
-    /////////////////// I-Frame response //////////////////////////////
-    // if (SLASH_PATH.substr(0, 7) === "/d-solo") {
-    //   _headers["Authorization"] = `Basic YWRtaW46YWRtaW4=`
-    //   console.log(_headers);
-    //   const response = Responses._200({
-    //     ..._headers,
-    //     Authorization: `Basic YWRtaW46YWRtaW4=`,
-    //     // "Set-Cookie": _headers['set-cookie'] ? _headers['set-cookie'][0] : "grafana_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
-    //   }, resp_data, res.status);
-    //   console.log(response);
-    //   return response
-    // }
-
 
     /////////////////// json response //////////////////////////////
     // if (_headers['set-cookie'] && _headers['set-cookie'][0]) {

@@ -2,6 +2,9 @@
 !jest.config.js
 *.d.ts
 node_modules
+*.tar.gz
+grafana
+_grafana
 
 # CDK asset staging directory
 .cdk.staging
@@ -9,3 +12,6 @@ cdk.out
 
 # Parcel default cache directory
 .parcel-cache
+
+#logs
+output.log

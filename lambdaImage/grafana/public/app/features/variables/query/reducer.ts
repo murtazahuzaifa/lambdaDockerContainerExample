@@ -1,11 +1,12 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import _ from 'lodash';
-import { DataSourceApi, DataSourceSelectItem, MetricFindValue, stringToJsRegex } from '@grafana/data';
+import { DataSourceApi, MetricFindValue, stringToJsRegex } from '@grafana/data';
 
 import {
   initialVariableModelState,
   QueryVariableModel,
   VariableOption,
+  VariableQueryEditorType,
   VariableRefresh,
   VariableSort,
   VariableTag,
@@ -19,8 +20,6 @@ import {
   NONE_VARIABLE_VALUE,
   VariablePayload,
 } from '../state/types';
-import { ComponentType } from 'react';
-import { VariableQueryProps } from '../../../types';
 import { initialVariablesState, VariablesState } from '../state/variablesReducer';
 
 interface VariableOptionsUpdate {
@@ -29,8 +28,7 @@ interface VariableOptionsUpdate {
 }
 
 export interface QueryVariableEditorState {
-  VariableQueryEditor: ComponentType<VariableQueryProps> | null;
-  dataSources: DataSourceSelectItem[];
+  VariableQueryEditor: VariableQueryEditorType;
   dataSource: DataSourceApi | null;
 }
 
@@ -54,7 +52,7 @@ export const initialQueryVariableModelState: QueryVariableModel = {
   definition: '',
 };
 
-const sortVariableValues = (options: any[], sortOrder: VariableSort) => {
+export const sortVariableValues = (options: any[], sortOrder: VariableSort) => {
   if (sortOrder === VariableSort.disabled) {
     return options;
   }
@@ -65,7 +63,11 @@ const sortVariableValues = (options: any[], sortOrder: VariableSort) => {
   if (sortType === 1) {
     options = _.sortBy(options, 'text');
   } else if (sortType === 2) {
-    options = _.sortBy(options, opt => {
+    options = _.sortBy(options, (opt) => {
+      if (!opt.text) {
+        return -1;
+      }
+
       const matches = opt.text.match(/.*?(\d+).*/);
       if (!matches || matches.length < 2) {
         return -1;
@@ -74,7 +76,7 @@ const sortVariableValues = (options: any[], sortOrder: VariableSort) => {
       }
     });
   } else if (sortType === 3) {
-    options = _.sortBy(options, opt => {
+    options = _.sortBy(options, (opt) => {
       return _.toLower(opt.text);
     });
   }
@@ -84,6 +86,18 @@ const sortVariableValues = (options: any[], sortOrder: VariableSort) => {
   }
 
   return options;
+};
+
+export const getAllMatches = (str: string, regex: RegExp): any => {
+  const results = {};
+  let matches;
+
+  do {
+    matches = regex.exec(str);
+    _.merge(results, matches);
+  } while (regex.global && matches);
+
+  return results;
 };
 
 const metricNamesToVariableValues = (variableRegEx: string, sort: VariableSort, metricNames: any[]) => {
@@ -109,13 +123,24 @@ const metricNamesToVariableValues = (variableRegEx: string, sort: VariableSort, 
     }
 
     if (regex) {
-      matches = regex.exec(value);
-      if (!matches) {
+      matches = getAllMatches(value, regex);
+
+      if (_.isEmpty(matches)) {
         continue;
       }
-      if (matches.length > 1) {
-        value = matches[1];
-        text = matches[1];
+
+      if (matches.groups && matches.groups.value && matches.groups.text) {
+        value = matches.groups.value;
+        text = matches.groups.text;
+      } else if (matches.groups && matches.groups.value) {
+        value = matches.groups.value;
+        text = value;
+      } else if (matches.groups && matches.groups.text) {
+        text = matches.groups.text;
+        value = text;
+      } else if (matches['1']) {
+        text = matches['1'];
+        value = matches['1'];
       }
     }
 

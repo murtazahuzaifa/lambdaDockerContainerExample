@@ -1,0 +1,25 @@
+VERSION="grafana-7.4.0"
+cur_path=$(pwd)  #current path
+conf_file="grafana.ini"
+
+# path where we want to install grafana
+cd $1
+
+#installing grafana
+echo "intalling $VERSION ..."
+wget https://dl.grafana.com/oss/release/$VERSION.linux-amd64.tar.gz
+tar -zxvf $VERSION.linux-amd64.tar.gz
+
+
+#installing plugin
+echo "intalling plugin ..."
+$VERSION/bin/grafana-cli --pluginsDir "./$VERSION/plugins" plugins install grafana-timestream-datasource
+
+#mv $cur_path/$conf_file $VERSION/conf/$conf_file
+
+mv $VERSION grafana #renaming the folder
+
+#removing the .tar.gz file
+rm $VERSION.linux-amd64.tar.gz
+
+#$VERSION/bin/grafana-server --homepath="./$VERSION" --config="./$VERSION/conf/defaults.ini"

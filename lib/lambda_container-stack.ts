@@ -2,44 +2,46 @@ import * as cdk from "@aws-cdk/core";
 import * as lambda from "@aws-cdk/aws-lambda";
 import * as apigatewayv2 from "@aws-cdk/aws-apigatewayv2";
 import { LambdaProxyIntegration } from "@aws-cdk/aws-apigatewayv2-integrations";
-import { Duration } from '@aws-cdk/core';
 import * as iam from "@aws-cdk/aws-iam";
+require('dotenv').config();
 
+
+////////////////////////////////////////// main stack //////////////////////////////////
 export class LambdaContainerStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // creating lambda with contianer image
-    const fn = new lambda.DockerImageFunction(this, "lambdaFunction", {
+    // creating lambda container with docker image
+    const lambdaContainer = new lambda.DockerImageFunction(this, "lambdaFunction", {
       code: lambda.DockerImageCode.fromImageAsset("lambdaImage"),
-      // timeout: Duration.seconds(30),
+      // timeout: cdk.Duration.seconds(30),
       memorySize: 300,
       environment: {
-        USERS_TABLE: "GrafanaApiStack-GrafanaRecord3E82FFFC-1ECPFEYZJ74OO",
-        GF_MYSQL_HOST: "34.66.219.103:3306",
-        GF_MYSQL_USER: "root",
-        GF_MYSQL_PASSWORD: "admin123",
+        USERS_TABLE: process.env.USERS_TABLE!,
+        GF_MYSQL_HOST: process.env.GF_MYSQL_HOST!,
+        GF_MYSQL_USER: process.env.GF_MYSQL_USER!,
+        GF_MYSQL_PASSWORD: process.env.GF_MYSQL_PASSWORD!,
       }
     });
 
-    fn.addToRolePolicy(new iam.PolicyStatement({
+    /* adding require policies in lambda default role */
+    lambdaContainer.addToRolePolicy(new iam.PolicyStatement({
       actions: ["ecr-public:*", "ecr:SetRepositoryPolicy", "ecr:GetRepositoryPolicy", "dynamodb:*"],
       resources: ['*'],
       effect: iam.Effect.ALLOW,
     }))
 
 
+    /* logging http endpoint for lambda container */
     const httpApi = new apigatewayv2.HttpApi(this, "LambdaDockerApi", {
-      defaultIntegration: new LambdaProxyIntegration({ handler: fn })
+      defaultIntegration: new LambdaProxyIntegration({ handler: lambdaContainer })
     });
-    fn.addEnvironment("HTTP_API", httpApi.apiEndpoint)
-    // httpApi.
-    // httpApi.addRoutes({
-    //   path: '/',
-    //   methods: [apigatewayv2.HttpMethod.ANY],
-    //   integration: new LambdaProxyIntegration({ handler: fn })
-    // })
 
+    /* adding api endpoint as environment in lambda container */
+    lambdaContainer.addEnvironment("HTTP_API", httpApi.apiEndpoint)
+
+
+    /* logging api end point */
     new cdk.CfnOutput(this, "lambdaApi", { value: httpApi.apiEndpoint })
 
   }

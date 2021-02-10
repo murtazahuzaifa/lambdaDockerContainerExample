@@ -9,7 +9,7 @@
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk",
-    "install-grafana":"./install-grafana.sh ./lambdaImage"
+    "install-grafana": "./install-grafana.sh ./lambdaImage"
   },
   "devDependencies": {
     "@aws-cdk/assert": "1.76.0",
@@ -33,6 +33,7 @@
     "@aws-cdk/core": "1.76.0",
     "@types/aws-lambda": "^8.10.64",
     "aws-sdk": "^2.839.0",
+    "dotenv": "^8.2.0",
     "source-map-support": "^0.5.16"
   }
 }

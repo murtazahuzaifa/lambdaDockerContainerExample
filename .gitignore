@@ -5,6 +5,7 @@ node_modules
 *.tar.gz
 grafana
 _grafana
+.env
 
 # CDK asset staging directory
 .cdk.staging

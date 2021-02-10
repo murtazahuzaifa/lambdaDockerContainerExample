@@ -15,11 +15,7 @@ tar -zxvf $VERSION.linux-amd64.tar.gz
 echo "intalling plugin ..."
 $VERSION/bin/grafana-cli --pluginsDir "./$VERSION/plugins" plugins install grafana-timestream-datasource
 
-#mv $cur_path/$conf_file $VERSION/conf/$conf_file
-
 mv $VERSION grafana #renaming the folder
 
 #removing the .tar.gz file
 rm $VERSION.linux-amd64.tar.gz
-
-#$VERSION/bin/grafana-server --homepath="./$VERSION" --config="./$VERSION/conf/defaults.ini"

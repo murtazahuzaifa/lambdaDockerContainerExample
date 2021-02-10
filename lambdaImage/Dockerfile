@@ -25,10 +25,8 @@ WORKDIR /${FUNCTION_DIR}
 # If the dependency is not in package.json uncomment the following line
 RUN npm install && npm install aws-lambda-ric
 
-# Grab a fresh slim copy of the image to reduce the final size
+# Grab a copy of the image to reduce the final size
 FROM node:12-buster 
-# node:12-buster-slim
-# RUN apt-get update && apt-get install -y curl procps
 
 # Include global arg in this stage of the build
 ARG FUNCTION_DIR
@@ -43,15 +41,3 @@ COPY --from=build-image /${FUNCTION_DIR} /${FUNCTION_DIR}
 ENTRYPOINT ["/usr/local/bin/npx", "aws-lambda-ric"]
 CMD ["app.handler"]
 
-
-
-
-# FROM alpine
-# LABEL maintainer="aamirpinger@yahoo.com"
-# RUN apk add --update nodejs nodejs-npm
-# COPY . /src
-# WORKDIR /src
-# RUN npm install
-# ENV CREATEDBY="Aamir Pinger"
-# EXPOSE 8080
-# ENTRYPOINT ["node", "./app.js"]

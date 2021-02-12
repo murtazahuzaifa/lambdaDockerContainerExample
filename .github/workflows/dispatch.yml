@@ -30,6 +30,7 @@ jobs:
           node-version: 12
 
       - run: npm run install-grafana
+      - run: npm install
       - run: npm install -g cdk
       # run build command in aws-cdk dir
       - run: npm run build

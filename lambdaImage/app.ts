@@ -73,11 +73,11 @@ export const handler = async (event: Event, context: Context, callback: Callback
     // getting response from grafana local server
     const res = await http(url, METHOD, event.headers, event.body)
 
-    console.log(`event.header ===>`, res?.headers, res?.statusText, res.request.res.responseUrl);
+    console.log(`event.header ===>`, res?.headers, res?.statusText, res.request.res.responseUrl, `, data==>"${res?.data}"`);
     console.log(`\nAXIOS RESPONSE ${url} ===>`, res);
     const resp_data = res?.data || "{}";
     // console.log(`AXIOS RESPONSE ${url} ===>`, res?.headers, res?.statusText, res.request.res.responseUrl);
-    const _headers = res?.headers as { 'set-cookie': string, Authorization: string };
+    const _headers = res?.headers as { 'content-type': string };
 
 
     /////////////////// json response //////////////////////////////
@@ -85,9 +85,10 @@ export const handler = async (event: Event, context: Context, callback: Callback
     //   console.log("set-cookie ==>>", _headers['set-cookie'][0])
     //   _headers['set-cookie'] = _headers['set-cookie'][0]
     // }
+    console.log('=== Ready to return Response ===')
 
-    if (res.headers["content-type"] === "application/json") {
-      console.log(`res.headers["content-type"] === "application/json"`)
+    if (_headers["content-type"] === "application/json" || _headers["content-type"] === "application/json; charset=UTF-8") {
+      console.log(`json response`)
       const response = Responses.res(res.status, {
         ..._headers,
       }, resp_data);
@@ -98,7 +99,7 @@ export const handler = async (event: Event, context: Context, callback: Callback
 
     /////////////////// default response //////////////////////////////
     return Responses._200({
-      "Content-Type": res?.headers["content-type"],
+      "Content-Type": _headers["content-type"],
       ..._headers,
     }, resp_data);
 
@@ -175,20 +176,20 @@ const http = async (url: string, method: HttpMethod = HttpMethod.GET, headers?: 
 
   if (method === HttpMethod.POST) {
     console.log('POST====>req');
-    res = await axios.post(url, JSON.parse(body || "{}"), { headers });
+    res = await axios.post(url, JSON.parse(body || "{}"), { headers: headers });
   }
 
   else if (method === HttpMethod.PUT) {
     console.log('PUT====>req');
-    res = await axios.put(url, JSON.parse(body || "{}"), { headers });
+    res = await axios.put(url, JSON.parse(body || "{}"), { headers: headers });
   }
 
   else if (method === HttpMethod.DELETE) {
-    res = await axios.delete(url, { headers });
+    res = await axios.delete(url, { headers: headers });
   }
 
   else {
-    res = await axios.get(url, { headers });
+    res = await axios.get(url, { headers: headers });
   }
 
   return res;

@@ -1,0 +1,37 @@
+{
+  "name": "grafana-api",
+  "version": "0.1.0",
+  "bin": {
+    "grafana-api": "bin/grafana-api.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "cdk": "cdk"
+  },
+  "devDependencies": {
+    "@aws-cdk/assert": "1.85.0",
+    "@types/jest": "^26.0.10",
+    "@types/node": "10.17.27",
+    "jest": "^26.4.2",
+    "ts-jest": "^26.2.0",
+    "aws-cdk": "1.85.0",
+    "ts-node": "^9.0.0",
+    "typescript": "~3.9.7"
+  },
+  "dependencies": {
+    "@aws-cdk/core": "1.85.0",
+    "@aws-cdk/aws-appsync": "1.85.0",
+    "@aws-cdk/aws-dynamodb": "1.85.0",
+    "@aws-cdk/aws-events": "1.85.0",
+    "@aws-cdk/aws-events-targets": "1.85.0",
+    "@aws-cdk/aws-lambda": "1.85.0",
+    "@aws-cdk/aws-timestream": "1.85.0",
+    "axios": "^0.21.1",
+    "dotenv": "^8.2.0",
+    "guid-typescript": "^1.0.9",
+    "js-base64": "^3.6.0",
+    "source-map-support": "^0.5.16"
+  }
+}

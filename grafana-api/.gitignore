@@ -1,15 +1,8 @@
 *.js
 !jest.config.js
-*.tar.gz
 *.d.ts
 node_modules
-.env
 
 # CDK asset staging directory
 .cdk.staging
 cdk.out
-
-lambdaImage/grafana
-
-#logs
-output.log
